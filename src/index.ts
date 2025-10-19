@@ -1,19 +1,28 @@
 import * as path from "path";
 import { readFileSync, existsSync } from "fs";
 import { NarratorInfo } from "./model";
+import { GoogleGenAI } from "@google/genai";
 
-const destinationPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
-const sourcePath = path.resolve(
-  __dirname,
-  "../../Books/Tahdhib-al-Kamal/Figures"
-);
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const MAX_GENERATED = 5;
 
 async function main(): Promise<void> {
+  const destinationPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
+  const sourcePath = path.resolve(
+    __dirname,
+    "../../Books/Tahdhib-al-Kamal/Figures"
+  );
   const narrators: NarratorInfo[] = JSON.parse(
     readFileSync("./data/Tahdhib.json", "utf-8")
   );
+  const systemPrompt = readFileSync("./data/SystemPrompt.md", "utf-8");
+  const userPromptTemplate = readFileSync(
+    "./data/ExtractNarratedFromTahdib.md",
+    "utf-8"
+  );
 
-  for (const narrator of narrators.slice(0, 100)) {
+  let count = 0;
+  for (const narrator of narrators) {
     if (!narrator.id) {
       continue;
     }
@@ -32,16 +41,26 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // Read the source file content
     const content = readFileSync(sourceFile, "utf-8");
     if (!["خ", "م"].some((symbol) => hasIsolatedLetter(content, symbol))) {
       continue;
     }
 
-    // Write to the destination file
-    require("fs").writeFileSync(destinationFile, content, "utf-8");
-    console.log(`Generated: ${narrator.id}`);
+    console.log(`Generating: ${narrator.id} ...`);
+
+    const userPrompt = userPromptTemplate.replace("{{bio}}", content);
+
+    const generatedContent = await askGenAI(systemPrompt, userPrompt);
+
+    require("fs").writeFileSync(destinationFile, generatedContent, "utf-8");
+
+    count++;
+    if (count >= MAX_GENERATED) {
+      break;
+    }
   }
+
+  console.log(`Total files generated: ${count}`);
 }
 
 function hasIsolatedLetter(str: string, letter: string): boolean {
@@ -51,12 +70,7 @@ function hasIsolatedLetter(str: string, letter: string): boolean {
     );
   }
 
-  // Escape the letter for use in regex
   const escapedLetter = letter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  
-  // Pattern that checks if the letter is isolated:
-  // - Not preceded by Arabic letters (allowing diacritics in between)
-  // - Not followed by Arabic letters (allowing diacritics in between)
   const regex = new RegExp(
     `(?<![\\u0621-\\u064A][\\u064B-\\u065F]*)${escapedLetter}(?![\\u064B-\\u065F]*[\\u0621-\\u064A])`,
     "u"
@@ -68,6 +82,27 @@ function toArabicDigits(str: number | null): string {
   if (str === null) return "";
   const arabic = "٠١٢٣٤٥٦٧٨٩";
   return String(str).replace(/[0-9]/g, (d) => arabic[parseInt(d)]);
+}
+
+async function askGenAI(
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string | undefined> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.1
+      },
+    });
+
+    return response.text;
+  } catch (error) {
+    console.error("Error generating content:", error);
+    throw error; // Rethrow the error after logging
+  }
 }
 
 main().catch(console.error);
