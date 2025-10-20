@@ -10,7 +10,7 @@ import {
 } from "./utils";
 import { createNarratorNote } from "./figureHelpers";
 
-const MAX_GENERATED = 5;
+const MAX_GENERATED = 2;
 
 async function main(): Promise<void> {
   const destinationPath = path.resolve(__dirname, "../../Zettelkasten/Figures");

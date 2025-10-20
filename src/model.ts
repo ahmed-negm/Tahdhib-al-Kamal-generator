@@ -13,6 +13,7 @@ export interface TahdibNarrator {
 }
 
 export interface ExtractedNarratorData {
+  knownName: string;
   teachers: TahdibNarrator[];
   students: TahdibNarrator[];
 }

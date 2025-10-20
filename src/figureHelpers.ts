@@ -25,11 +25,9 @@ export function createNarratorNote(
     students.filter((n) => n.symbols)
   );
 
-  const expectedKnownName = narrator.name;
-
   return createFigureNote(
     narrator,
-    expectedKnownName,
+    extractedData.knownName,
     teachersMarkdown,
     studentsMarkdown
   );

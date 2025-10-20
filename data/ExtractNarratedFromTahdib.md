@@ -9,10 +9,12 @@ Your task is to extract the **complete list** of narrators who narrated **FROM**
 5. If a name has **no symbols**, leave the `"symbols"` field as an empty string.  
 6. Output must be in **JSON** format exactly as shown below.  
 7. Do not add explanations, commentary, or extra fields — just return the JSON.
+8. `knownName` should represent the narrator’s most commonly used identifier, whether a laqab or a kunya. It does not necessarily have to be sourced from Tahdhib al-Kamal.
 
 ## Output Schema (STRICT):
 ```json
 {
+  "knownName": "His most commonly used name (laqab or kunya)",
   "teachers": [
     {
       "name": "Narrators in  **"رَوَى عَن"** section. Narrator name exactly like in the provided text",
