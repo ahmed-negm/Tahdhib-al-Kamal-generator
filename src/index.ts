@@ -1,9 +1,15 @@
 import * as path from "path";
-import { readFileSync, existsSync } from "fs";
-import { NarratorInfo } from "./model";
-import { GoogleGenAI } from "@google/genai";
+import { readFileSync, existsSync, writeFileSync } from "fs";
+import { ExtractedNarratorData, NarratorInfo } from "./model";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+import {
+  askGenAI,
+  extractJsonCodeBlock,
+  hasIsolatedLetter,
+  toArabicDigits,
+} from "./utils";
+import { createNarratorNote } from "./figureHelpers";
+
 const MAX_GENERATED = 5;
 
 async function main(): Promise<void> {
@@ -52,7 +58,19 @@ async function main(): Promise<void> {
 
     const generatedContent = await askGenAI(systemPrompt, userPrompt);
 
-    require("fs").writeFileSync(destinationFile, generatedContent, "utf-8");
+    const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
+      generatedContent || ""
+    );
+
+    if (!extractedData || !extractedData.teachers || !extractedData.students) {
+      console.warn(
+        `Failed to extract valid JSON data for narrator ID ${narrator.id}`
+      );
+      continue;
+    }
+
+    const finalContent = createNarratorNote(narrator, extractedData);
+    writeFileSync(destinationFile, finalContent, "utf-8");
 
     count++;
     if (count >= MAX_GENERATED) {
@@ -61,48 +79,6 @@ async function main(): Promise<void> {
   }
 
   console.log(`Total files generated: ${count}`);
-}
-
-function hasIsolatedLetter(str: string, letter: string): boolean {
-  if (!/^[\u0621-\u064A]$/.test(letter)) {
-    throw new Error(
-      "Input letter must be a single Arabic character (0621–064A)."
-    );
-  }
-
-  const escapedLetter = letter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(
-    `(?<![\\u0621-\\u064A][\\u064B-\\u065F]*)${escapedLetter}(?![\\u064B-\\u065F]*[\\u0621-\\u064A])`,
-    "u"
-  );
-  return regex.test(str);
-}
-
-function toArabicDigits(str: number | null): string {
-  if (str === null) return "";
-  const arabic = "٠١٢٣٤٥٦٧٨٩";
-  return String(str).replace(/[0-9]/g, (d) => arabic[parseInt(d)]);
-}
-
-async function askGenAI(
-  systemPrompt: string,
-  userPrompt: string
-): Promise<string | undefined> {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.1
-      },
-    });
-
-    return response.text;
-  } catch (error) {
-    console.error("Error generating content:", error);
-    throw error; // Rethrow the error after logging
-  }
 }
 
 main().catch(console.error);
