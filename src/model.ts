@@ -26,3 +26,10 @@ export const BOOKS = [
   { symbol: "ق", name: "ابن ماجه" },
   { symbol: "د", name: "أبي داود" },
 ] as const;
+
+// get list of book symbols
+export const BOOK_SYMBOLS = BOOKS.map((b) => b.symbol) as string[];
+BOOK_SYMBOLS.push("ع");
+BOOK_SYMBOLS.push("٤");
+
+export const BUKHARI_SYMBOLS = ["خ", "ع", "٤"];

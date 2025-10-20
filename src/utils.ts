@@ -5,11 +5,6 @@ export function getSignedUrl(url: string): string {
 }
 
 export function hasIsolatedLetter(str: string, letter: string): boolean {
-  if (!/^[\u0621-\u064A]$/.test(letter)) {
-    throw new Error(
-      "Input letter must be a single Arabic character (0621–064A)."
-    );
-  }
 
   const escapedLetter = letter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(

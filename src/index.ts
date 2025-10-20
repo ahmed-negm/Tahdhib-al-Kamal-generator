@@ -1,6 +1,6 @@
 import * as path from "path";
 import { readFileSync, existsSync, writeFileSync } from "fs";
-import { ExtractedNarratorData, NarratorInfo } from "./model";
+import { BOOK_SYMBOLS, ExtractedNarratorData, NarratorInfo } from "./model";
 
 import {
   askGenAI,
@@ -10,10 +10,15 @@ import {
 } from "./utils";
 import { createNarratorNote } from "./figureHelpers";
 
-const MAX_GENERATED = 2;
+const dryRun = false;
+const MAX_GENERATED = !dryRun ? 200 : 10000000;
 
 async function main(): Promise<void> {
-  const destinationPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
+  const originalPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
+  const destinationPath = path.resolve(
+    __dirname,
+    "../../Books/Tahdhib-al-Kamal/ProcessedFigures"
+  );
   const sourcePath = path.resolve(
     __dirname,
     "../../Books/Tahdhib-al-Kamal/Figures"
@@ -33,8 +38,9 @@ async function main(): Promise<void> {
       continue;
     }
 
+    const originalPathFile = path.join(originalPath, `${narrator.name}.md`);
     const destinationFile = path.join(destinationPath, `${narrator.name}.md`);
-    if (existsSync(destinationFile)) {
+    if (existsSync(destinationFile) || existsSync(originalPathFile)) {
       continue;
     }
 
@@ -43,34 +49,58 @@ async function main(): Promise<void> {
       `${toArabicDigits(narrator.id)}-${narrator.name}.md`
     );
     if (!existsSync(sourceFile)) {
-      console.warn(`Source file does not exist: ${sourceFile}`);
+      console.warn(`[${narrator.id}] Source file does not exist`);
       continue;
     }
 
     const content = readFileSync(sourceFile, "utf-8");
-    if (!["خ", "م"].some((symbol) => hasIsolatedLetter(content, symbol))) {
+    if (!BOOK_SYMBOLS.some((symbol) => hasIsolatedLetter(content, symbol))) {
       continue;
     }
 
-    console.log(`Generating: ${narrator.id} ...`);
+    if (!dryRun) {
+      console.log(`[${count + 1}][${narrator.id}] Generating...`);
 
-    const userPrompt = userPromptTemplate.replace("{{bio}}", content);
+      const userPrompt = userPromptTemplate.replace("{{bio}}", content);
 
-    const generatedContent = await askGenAI(systemPrompt, userPrompt);
+      const generatedContent = await askGenAI(systemPrompt, userPrompt);
 
-    const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
-      generatedContent || ""
-    );
-
-    if (!extractedData || !extractedData.teachers || !extractedData.students) {
-      console.warn(
-        `Failed to extract valid JSON data for narrator ID ${narrator.id}`
+      const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
+        generatedContent || ""
       );
-      continue;
-    }
 
-    const finalContent = createNarratorNote(narrator, extractedData);
-    writeFileSync(destinationFile, finalContent, "utf-8");
+      if (
+        !extractedData ||
+        !extractedData.teachers ||
+        !extractedData.students
+      ) {
+        console.warn(`   Failed to extract valid JSON data`);
+        continue;
+      }
+
+      const hasValidTeachers = extractedData.teachers.some(
+        (teacher) =>
+          teacher.symbols &&
+          teacher.symbols.length > 0 &&
+          BOOK_SYMBOLS.some((symbol) =>
+            hasIsolatedLetter(teacher.symbols, symbol)
+          )
+      );
+      const hasValidStudents = extractedData.students.some(
+        (student) =>
+          student.symbols &&
+          student.symbols.length > 0 &&
+          BOOK_SYMBOLS.some((symbol) =>
+            hasIsolatedLetter(student.symbols, symbol)
+          )
+      );
+
+      const finalContent = createNarratorNote(narrator, extractedData);
+      writeFileSync(destinationFile, finalContent, "utf-8");
+      if (!hasValidTeachers && !hasValidStudents) {
+        console.warn(`   No valid teachers or students with book symbols`);
+      }
+    }
 
     count++;
     if (count >= MAX_GENERATED) {
