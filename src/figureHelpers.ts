@@ -88,9 +88,17 @@ function processSymbols(symbols: string): Record<string, string> {
   const clean = symbols.replace(/[()]/g, "").trim();
   const chars = clean.split(" ");
 
-  // If "ع" or "٤" is present, mark all columns with check mark
-  if (chars.includes("ع") || chars.includes("٤")) {
+  // If "ع" is present, mark all columns with check mark
+  if (chars.includes("ع")) {
     for (const h of HEADERS.slice(0, -1)) {
+      result[h] = CHECKMARKS[0];
+    }
+    return result;
+  }
+
+  // If "٤" is present, mark `الترمذي` to `أبي داود` with check mark
+  if (chars.includes("٤")) {
+    for (const h of HEADERS.slice(2, -1)) {
       result[h] = CHECKMARKS[0];
     }
     return result;
@@ -99,7 +107,7 @@ function processSymbols(symbols: string): Record<string, string> {
   const used = new Set<string>();
   for (const { symbol, name } of BOOKS) {
     if (chars.includes(symbol)) {
-      result[name] = "✔";
+      result[name] = CHECKMARKS[0];
       used.add(symbol);
     }
   }

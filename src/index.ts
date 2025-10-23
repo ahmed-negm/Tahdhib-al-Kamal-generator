@@ -1,23 +1,21 @@
 import * as path from "path";
 import { readFileSync, existsSync, writeFileSync } from "fs";
-import { BOOK_SYMBOLS, ExtractedNarratorData, NarratorInfo } from "./model";
+import { ExtractedNarratorData, NarratorInfo } from "./model";
 
-import {
-  askGenAI,
-  extractJsonCodeBlock,
-  hasIsolatedLetter,
-  toArabicDigits,
-} from "./utils";
+import { askGenAI, extractJsonCodeBlock, toArabicDigits } from "./utils";
 import { createNarratorNote } from "./figureHelpers";
 
-const dryRun = false;
-const MAX_GENERATED = !dryRun ? 200 : 10000000;
+const MAX_GENERATED = 1000;
 
 async function main(): Promise<void> {
-  const originalPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
+  // const originalPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
+  const destinationMdPath = path.resolve(
+    __dirname,
+    "../../Books/Tahdhib-al-Kamal/Processed"
+  );
   const destinationPath = path.resolve(
     __dirname,
-    "../../Books/Tahdhib-al-Kamal/ProcessedFigures"
+    "../../Books/Tahdhib-al-Kamal/Json"
   );
   const sourcePath = path.resolve(
     __dirname,
@@ -38,9 +36,13 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const originalPathFile = path.join(originalPath, `${narrator.name}.md`);
-    const destinationFile = path.join(destinationPath, `${narrator.name}.md`);
-    if (existsSync(destinationFile) || existsSync(originalPathFile)) {
+    // const originalPathFile = path.join(originalPath, `${narrator.name}.md`);
+    const destinationFile = path.join(destinationPath, `${narrator.id}.json`);
+    const destinationMdFile = path.join(
+      destinationMdPath,
+      `${narrator.name}.md`
+    );
+    if (existsSync(destinationFile)) {
       continue;
     }
 
@@ -54,53 +56,33 @@ async function main(): Promise<void> {
     }
 
     const content = readFileSync(sourceFile, "utf-8");
-    if (!BOOK_SYMBOLS.some((symbol) => hasIsolatedLetter(content, symbol))) {
+
+    console.log(`[${count + 1}][${narrator.id}] Generating...`);
+
+    const userPrompt = userPromptTemplate.replace("{{bio}}", content);
+
+    const generatedContent = await askGenAI(systemPrompt, userPrompt);
+
+    const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
+      generatedContent || ""
+    );
+
+    if (!extractedData) {
+      console.warn(`   Failed to extract valid JSON data`);
       continue;
     }
 
-    if (!dryRun) {
-      console.log(`[${count + 1}][${narrator.id}] Generating...`);
+    extractedData.teachers = extractedData.teachers || [];
+    extractedData.students = extractedData.students || [];
 
-      const userPrompt = userPromptTemplate.replace("{{bio}}", content);
+    writeFileSync(
+      destinationFile,
+      JSON.stringify(extractedData, null, 2),
+      "utf-8"
+    );
 
-      const generatedContent = await askGenAI(systemPrompt, userPrompt);
-
-      const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
-        generatedContent || ""
-      );
-
-      if (
-        !extractedData ||
-        !extractedData.teachers ||
-        !extractedData.students
-      ) {
-        console.warn(`   Failed to extract valid JSON data`);
-        continue;
-      }
-
-      const hasValidTeachers = extractedData.teachers.some(
-        (teacher) =>
-          teacher.symbols &&
-          teacher.symbols.length > 0 &&
-          BOOK_SYMBOLS.some((symbol) =>
-            hasIsolatedLetter(teacher.symbols, symbol)
-          )
-      );
-      const hasValidStudents = extractedData.students.some(
-        (student) =>
-          student.symbols &&
-          student.symbols.length > 0 &&
-          BOOK_SYMBOLS.some((symbol) =>
-            hasIsolatedLetter(student.symbols, symbol)
-          )
-      );
-
-      const finalContent = createNarratorNote(narrator, extractedData);
-      writeFileSync(destinationFile, finalContent, "utf-8");
-      if (!hasValidTeachers && !hasValidStudents) {
-        console.warn(`   No valid teachers or students with book symbols`);
-      }
-    }
+    const finalContent = createNarratorNote(narrator, extractedData);
+    writeFileSync(destinationMdFile, finalContent, "utf-8");
 
     count++;
     if (count >= MAX_GENERATED) {
