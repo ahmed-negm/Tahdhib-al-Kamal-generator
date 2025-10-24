@@ -8,7 +8,6 @@ import { createNarratorNote } from "./figureHelpers";
 const MAX_GENERATED = 1000;
 
 async function main(): Promise<void> {
-  // const originalPath = path.resolve(__dirname, "../../Zettelkasten/Figures");
   const destinationMdPath = path.resolve(
     __dirname,
     "../../Books/Tahdhib-al-Kamal/Processed"
@@ -36,60 +35,68 @@ async function main(): Promise<void> {
       continue;
     }
 
-    // const originalPathFile = path.join(originalPath, `${narrator.name}.md`);
     const destinationFile = path.join(destinationPath, `${narrator.id}.json`);
     const destinationMdFile = path.join(
       destinationMdPath,
       `${narrator.name}.md`
     );
-    if (existsSync(destinationFile)) {
-      continue;
+
+    let extractedData: ExtractedNarratorData | null = null;
+
+    if (!existsSync(destinationFile)) {
+      const sourceFile = path.join(
+        sourcePath,
+        `${toArabicDigits(narrator.id)}-${narrator.name}.md`
+      );
+      if (!existsSync(sourceFile)) {
+        console.warn(`[${narrator.id}] Source file does not exist`);
+        continue;
+      }
+
+      const content = readFileSync(sourceFile, "utf-8");
+
+      console.log(`[${count + 1}][${narrator.id}] Generating...`);
+
+      const userPrompt = userPromptTemplate.replace("{{bio}}", content);
+
+      const generatedContent = await askGenAI(systemPrompt, userPrompt);
+
+      extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
+        generatedContent || ""
+      );
+
+      if (!extractedData) {
+        console.warn(`   Failed to extract valid JSON data`);
+        continue;
+      }
+
+      extractedData.teachers = extractedData.teachers || [];
+      extractedData.students = extractedData.students || [];
+
+      writeFileSync(
+        destinationFile,
+        JSON.stringify(extractedData, null, 2),
+        "utf-8"
+      );
     }
 
-    const sourceFile = path.join(
-      sourcePath,
-      `${toArabicDigits(narrator.id)}-${narrator.name}.md`
-    );
-    if (!existsSync(sourceFile)) {
-      console.warn(`[${narrator.id}] Source file does not exist`);
-      continue;
-    }
+    if (!existsSync(destinationMdFile)) {
+      if (!extractedData) {
+        extractedData = JSON.parse(
+          readFileSync(destinationFile, "utf-8")
+        );
+      }
 
-    const content = readFileSync(sourceFile, "utf-8");
+      const finalContent = createNarratorNote(narrator, extractedData!);
+      writeFileSync(destinationMdFile, finalContent, "utf-8");
 
-    console.log(`[${count + 1}][${narrator.id}] Generating...`);
-
-    const userPrompt = userPromptTemplate.replace("{{bio}}", content);
-
-    const generatedContent = await askGenAI(systemPrompt, userPrompt);
-
-    const extractedData = extractJsonCodeBlock<ExtractedNarratorData>(
-      generatedContent || ""
-    );
-
-    if (!extractedData) {
-      console.warn(`   Failed to extract valid JSON data`);
-      continue;
-    }
-
-    extractedData.teachers = extractedData.teachers || [];
-    extractedData.students = extractedData.students || [];
-
-    writeFileSync(
-      destinationFile,
-      JSON.stringify(extractedData, null, 2),
-      "utf-8"
-    );
-
-    const finalContent = createNarratorNote(narrator, extractedData);
-    writeFileSync(destinationMdFile, finalContent, "utf-8");
-
-    count++;
-    if (count >= MAX_GENERATED) {
-      break;
+      count++;
+      if (count >= MAX_GENERATED) {
+        break;
+      }
     }
   }
-
+  
   console.log(`Total files generated: ${count}`);
 }
 

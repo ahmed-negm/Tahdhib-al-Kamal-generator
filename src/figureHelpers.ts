@@ -73,10 +73,58 @@ function populateTemplate(
 }
 
 function generateMarkdownTable(narrators: TahdibNarrator[]): string {
-  const headerRow = `| ${HEADERS.join(" | ")} |`;
-  const separatorRow = `| ${HEADERS.map(() => "---").join(" | ")} |`;
-  const rows = narrators.map(narratorToRow);
+  // Calculate column widths based on content
+  const columnWidths = calculateColumnWidths(narrators);
+  
+  const headerRow = `| ${HEADERS.map((header, i) => 
+    header.padEnd(columnWidths[i])
+  ).join(" | ")} |`;
+  
+  const separatorRow = `| ${columnWidths.map((width: number) => 
+    "-".repeat(width)
+  ).join(" | ")} |`;
+  
+  const rows = narrators.map(narrator => narratorToFormattedRow(narrator, columnWidths));
   return [headerRow, separatorRow, ...rows].join("\n");
+}
+
+function calculateColumnWidths(narrators: TahdibNarrator[]): number[] {
+  const widths = HEADERS.map(header => header.length); // Start with header lengths
+  
+  // Check each narrator to find max width needed for each column
+  narrators.forEach(narrator => {
+    const marks = processSymbols(narrator.symbols);
+    
+    // Name column (index 0)
+    widths[0] = Math.max(widths[0], narrator.name.length);
+    
+    // Book columns
+    BOOKS.forEach((book, i) => {
+      const bookIndex = i + 1; // +1 because name is at index 0
+      const mark = marks[book.name] || "";
+      widths[bookIndex] = Math.max(widths[bookIndex], mark.length);
+    });
+    
+    // Others column (last column)
+    const othersIndex = widths.length - 1;
+    const others = marks[OTHERS_COLUMN] || "";
+    widths[othersIndex] = Math.max(widths[othersIndex], others.length);
+  });
+  
+  return widths;
+}
+
+function narratorToFormattedRow(narrator: TahdibNarrator, columnWidths: number[]): string {
+  const marks = processSymbols(narrator.symbols);
+  
+  const nameCell = narrator.name.padEnd(columnWidths[0]);
+  const bookCells = BOOKS.map((book, i) => {
+    const mark = marks[book.name] || "";
+    return mark.padEnd(columnWidths[i + 1]);
+  });
+  const othersCell = (marks[OTHERS_COLUMN] || "").padEnd(columnWidths[columnWidths.length - 1]);
+  
+  return `| ${nameCell} | ${bookCells.join(" | ")} | ${othersCell} |`;
 }
 
 function processSymbols(symbols: string): Record<string, string> {
