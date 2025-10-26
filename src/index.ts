@@ -35,15 +35,12 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const destinationFile = path.join(destinationPath, `${toArabicDigits(narrator.id)}-${narrator.name}.json`);
-    const destinationMdFile = path.join(
-      destinationMdPath,
-      `${narrator.name}.md`
-    );
+    const destinationJsonFile = path.join(destinationPath, `${toArabicDigits(narrator.id)}-${narrator.name}.json`);
+    const destinationMdFile = path.join(destinationMdPath, `${narrator.id}-${narrator.name}.md`);
 
     let extractedData: ExtractedNarratorData | null = null;
 
-    if (!existsSync(destinationFile)) {
+    if (!existsSync(destinationJsonFile)) {
       const sourceFile = path.join(
         sourcePath,
         `${toArabicDigits(narrator.id)}-${narrator.name}.md`
@@ -74,7 +71,7 @@ async function main(): Promise<void> {
       extractedData.students = extractedData.students || [];
 
       writeFileSync(
-        destinationFile,
+        destinationJsonFile,
         JSON.stringify(extractedData, null, 2),
         "utf-8"
       );
@@ -83,7 +80,7 @@ async function main(): Promise<void> {
     if (!existsSync(destinationMdFile)) {
       if (!extractedData) {
         extractedData = JSON.parse(
-          readFileSync(destinationFile, "utf-8")
+          readFileSync(destinationJsonFile, "utf-8")
         );
       }
 
@@ -96,7 +93,7 @@ async function main(): Promise<void> {
       }
     }
   }
-  
+
   console.log(`Total files generated: ${count}`);
 }
 

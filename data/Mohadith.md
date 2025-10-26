@@ -5,7 +5,6 @@ occupation: محدث
 birth_date:
 passing_date:
 tahdhib_id: {{TAHDHIB_ID}}
-creation_date: {{DATE}}
 ---
 ##### {{NAME}}
 
