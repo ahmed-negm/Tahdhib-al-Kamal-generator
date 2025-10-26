@@ -35,7 +35,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const destinationFile = path.join(destinationPath, `${narrator.id}.json`);
+    const destinationFile = path.join(destinationPath, `${toArabicDigits(narrator.id)}-${narrator.name}.json`);
     const destinationMdFile = path.join(
       destinationMdPath,
       `${narrator.name}.md`
