@@ -146,20 +146,25 @@ function processSymbols(symbols: string): Record<string, string> {
     return result;
   }
 
+  const used = new Set<string>();
+
   // If "٤" is present, mark `الترمذي` to `أبي داود` with check mark
   if (chars.includes("٤")) {
     for (const h of HEADERS.slice(2, -1)) {
       result[h] = CHECKMARKS[0];
     }
-    return result;
+    used.add("٤");
   }
 
-  const used = new Set<string>();
   for (const { symbol, name } of BOOKS) {
     if (chars.includes(symbol)) {
       result[name] = CHECKMARKS[0];
       used.add(symbol);
     }
+  }
+
+  if (chars.includes("خت")) {
+    result[HEADERS[1]] = CHECKMARKS[1];
   }
 
   const others = chars.filter((ch) => !used.has(ch) && ch !== "");
