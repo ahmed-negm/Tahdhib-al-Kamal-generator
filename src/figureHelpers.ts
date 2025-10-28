@@ -138,15 +138,15 @@ function processSymbols(symbols: string): Record<string, string> {
   const clean = symbols.replace(/[()]/g, "").trim();
   const chars = clean.split(" ");
 
+  const used = new Set<string>();
+
   // If "ع" is present, mark all columns with check mark
   if (chars.includes("ع")) {
     for (const h of HEADERS.slice(0, -1)) {
       result[h] = CHECKMARKS[0];
     }
-    return result;
+    used.add("ع");
   }
-
-  const used = new Set<string>();
 
   // If "٤" is present, mark `الترمذي` to `أبي داود` with check mark
   if (chars.includes("٤")) {

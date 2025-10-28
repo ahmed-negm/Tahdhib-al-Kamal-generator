@@ -77,7 +77,7 @@ async function main(): Promise<void> {
       );
     }
 
-    if (!existsSync(destinationMdFile)) {
+    // if (!existsSync(destinationMdFile)) {
       if (!extractedData) {
         extractedData = JSON.parse(
           readFileSync(destinationJsonFile, "utf-8")
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
       if (count >= MAX_GENERATED) {
         break;
       }
-    }
+    // }
   }
 
   console.log(`Total files generated: ${count}`);
